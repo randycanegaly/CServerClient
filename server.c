@@ -7,8 +7,24 @@
 #include <arpa/inet.h>
 
 /*
+* network functions are to be implemented in this order, mostly
+getaddrinfo() — set up the structs for comm config and adresses/ports 
+socket() — Get the File Descriptor
+bind() — What port am I on?
+connect()—Hey, you! - this is for clients
+listen() — waiting for a connection
+accept() — 
+send() and recv() - server/client talk socket gram
+sendto() and recvfrom() — server/clint talk, DGRAM-style
+close() and shutdown() — clean up when done
+getpeername() — Who are you?
+gethostname() — Who am I?
+*/
+
+/*
  * Isquared:
  * 1. create the necessary structures for the server address - getaddrinfo()
+ * 2. 
  */
 
 int main(void) {
