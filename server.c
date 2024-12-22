@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 /*
 * network functions are to be implemented in this order, mostly
@@ -24,13 +25,15 @@ gethostname() — Who am I?
 /*
  * Isquared:
  * 1. create the necessary structures for the server address - getaddrinfo()
- * 2. 
+ * 2. get a socket file descriptor using the address struct contents
+ * 3. bind - associate an address and port with the socket
  */
 
 int main(void) {
-    int status;
+    int status, sfd;//sfd is socket file descriptor
     struct addrinfo hints;
-    struct addrinfo *serverRes;//pointer to an addrinfo, s/b first in a linked list
+    struct addrinfo *serverRes, *addrp;//pointer to an addrinfo, s/b first in a linked list
+                                       //and a tracking pointer to walk the linked list
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
@@ -44,16 +47,44 @@ int main(void) {
 
     char *host = "localhost"; 
     char *port = "4221"; 
+    char ip4[INET_ADDRSTRLEN]; // space to hold the IPv4 string
+    
     if (status = getaddrinfo(host, port, &hints, &serverRes) != 0) {//**serverRes
         fprintf(stderr, "Getting address details failed with %s\n", gai_strerror(status));
         exit(1);
     }
 
-    printf("getaddr() succeeded\n"); 
-    printf("ai_flags: %d\n", serverRes->ai_flags);
-    char ip4[INET_ADDRSTRLEN]; // space to hold the IPv4 string
-    inet_ntop(AF_INET, &(((struct sockaddr_in *)serverRes->ai_addr)->sin_addr), ip4, INET_ADDRSTRLEN);
-    //inet_ntop(AF_INET, &(sa.sin_addr), ip4, INET_ADDRSTRLEN);
-    unsigned short aport = ntohs((((struct sockaddr_in *)serverRes->ai_addr)->sin_port));
-    printf("server address: %s, port: %u\n", ip4, aport);
+    /* getaddrinfo() returns a linked list of address structures.
+     * Try each address until we successfully bind.
+     * If either socket or bind fails, close the socket and
+     * try the next address. */
+
+    for (addrp = serverRes; addrp != NULL; addrp = addrp->ai_next) {//walk the linked list of addrinfo structs
+                                                                    //to the end -- next pointer is NULL
+        sfd = socket(addrp->ai_family, addrp->ai_socktype, addrp->ai_protocol);
+        if(sfd == -1) {//socket errored out, try the next address in the linked list
+            continue;//drop out of this iteration of the loop, allow the next one to start
+        }   
+        
+        //have a socket descriptor, can we bind to it?
+        if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == 0) {
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip4, INET_ADDRSTRLEN);
+            unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
+            printf("Was able to bind the socket to server address: %s, port: %u\n", ip4, aport);
+            break;//no need to keep walking the list, bind succeeded
+        }
+        
+        close(sfd);//weren't able to bind to this socket, so close it
+    }
+
+    freeaddrinfo(serverRes);//done with the address structures.
+                            // TODO: Why is this done before the check for NULL below?
+
+    if (addrp == NULL) {//walked to the end of the address list
+                     //never bound the socket
+        fprintf(stderr, "Could not bind\n");
+        exit(1);
+    }
 }
+
+
