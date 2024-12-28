@@ -24,16 +24,21 @@ gethostname() — Who am I?
 
 /*
  * Isquared:
- * 1. create the necessary structures for the server address - getaddrinfo()
- * 2. get a socket file descriptor using the address struct contents
- * 3. bind - associate an address and port with the socket
+ * 1. create the necessary structures for the server address - getaddrinfo() - DONE
+ * 2. get a socket file descriptor using the address struct contents - DONE
+ * 3. used setsocketopt to configure the socket - DONE
+ * 4. bind - associate an address and port with the socket - DONE
+ * 5. listen - DONE
+ * 6. accept - accept a client connection - DONE
  */
 
 int main(void) {
-    int status, sfd;//sfd is socket file descriptor
+    int status, sfd, setsockoptval, client_sfd, backlog;
     struct addrinfo hints;
     struct addrinfo *serverRes, *addrp;//pointer to an addrinfo, s/b first in a linked list
                                        //and a tracking pointer to walk the linked list
+    struct sockaddr_storage client_addr;
+    socklen_t client_addr_len;
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
@@ -65,26 +70,47 @@ int main(void) {
         if(sfd == -1) {//socket errored out, try the next address in the linked list
             continue;//drop out of this iteration of the loop, allow the next one to start
         }   
-        
-        //have a socket descriptor, can we bind to it?
-        if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == 0) {
-            inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip4, INET_ADDRSTRLEN);
-            unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
-            printf("Was able to bind the socket to server address: %s, port: %u\n", ip4, aport);
-            break;//no need to keep walking the list, bind succeeded
+
+        printf("got a socket with sfg: %d\n", sfd);
+        setsockoptval = 1; 
+        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &setsockoptval, sizeof setsockoptval) == -1) {
+            perror("server: setsockopt");
+            exit(1);
         }
         
-        close(sfd);//weren't able to bind to this socket, so close it
+        //have a socket descriptor, can we bind to it?
+        if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1) {
+            perror("server: bind");
+            close(sfd);
+            continue;
+        }
+        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip4, INET_ADDRSTRLEN);
+        unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
+        printf("Was able to bind the socket to server address: %s, port: %u\n", ip4, aport);
+
+        break;//if we got to here, we have bound and don't need to search any more addresses
     }
+    
+    freeaddrinfo(serverRes);
 
-    freeaddrinfo(serverRes);//done with the address structures.
-                            // TODO: Why is this done before the check for NULL below?
-
-    if (addrp == NULL) {//walked to the end of the address list
+    if (addrp == NULL) {//walked off the end of the address list
                      //never bound the socket
         fprintf(stderr, "Could not bind\n");
         exit(1);
     }
+
+    if (listen(sfd, backlog) == -1) {
+        perror("server: listen");
+        exit(1);
+    }
+
+    client_addr_len = sizeof client_addr;
+    if ((client_sfd = accept(sfd, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
+        perror("server: accept");
+        exit(1);
+    }
+    printf("accepted connection to client: %d\n", client_sfd);
+    close(client_sfd);
 }
 
 
