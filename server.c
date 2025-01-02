@@ -104,6 +104,8 @@ int main(void) {
         exit(1);
     }
 
+    printf("listening now\n");
+
     client_addr_len = sizeof client_addr;
     if ((client_sfd = accept(sfd, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
         perror("server: accept");
