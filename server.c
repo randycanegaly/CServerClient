@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#define MAXDATASIZE  128
+
 /*
 * network functions are to be implemented in this order, mostly
 getaddrinfo() — set up the structs for comm config and adresses/ports 
@@ -33,7 +35,7 @@ gethostname() — Who am I?
  */
 
 int main(void) {
-    int status, sfd, setsockoptval, client_sfd, backlog;
+    int status, sfd, setsockoptval, client_sfd, backlog, numbytes;
     struct addrinfo hints;
     struct addrinfo *serverRes, *addrp;//pointer to an addrinfo, s/b first in a linked list
                                        //and a tracking pointer to walk the linked list
@@ -52,7 +54,8 @@ int main(void) {
 
     char *host = "localhost"; 
     char *port = "4221"; 
-    char ip4[INET_ADDRSTRLEN]; // space to hold the IPv4 string
+    char ip4[INET_ADDRSTRLEN];  // space to hold the IPv4 string
+    char buf[MAXDATASIZE];      // space to hold string received
     
     if (status = getaddrinfo(host, port, &hints, &serverRes) != 0) {//**serverRes
         fprintf(stderr, "Getting address details failed with %s\n", gai_strerror(status));
@@ -112,7 +115,26 @@ int main(void) {
         exit(1);
     }
     printf("accepted connection to client: %d\n", client_sfd);
+   
+    char *msg = "Hello Randy!";
+    int msg_len = strlen(msg);
+    if (send(client_sfd, msg, msg_len, 0) == -1) {
+        perror("server: send");
+        exit(1);
+    }
+
+    printf("Just sent \"Hello Randy!\" to the client.\n");
+
+    if ((numbytes = recv(client_sfd, buf, MAXDATASIZE-1, 0)) == -1) {
+        perror("client: recv\n");
+        exit(1);
+    }
+ 
+    buf[numbytes] = '\0';//terminate the buffer string
+    printf("received %d bytes -- %s\n", numbytes, buf);
+
     close(client_sfd);
+    close(sfd);
 }
 
 

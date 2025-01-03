@@ -4,14 +4,18 @@
 #include <netdb.h>
 #include <string.h>
 #include <stdio.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
+#define MAXDATASIZE 128
 
 //http://localhost
 //port is 4221
 
+void *get_in_addr(struct sockaddr *sa);
 
 int main(int argc, char *argv[]) {
-    int status;
+    int status, sfd, setsockoptval, numbytes;
     /*
      * struct addrinfo holds information about the 
      * type of connection and communication you want
@@ -22,9 +26,11 @@ int main(int argc, char *argv[]) {
      */
 
     struct addrinfo hints;
-    struct addrinfo *serverinfo;//pointer to an array of addrinfo structs - all addresses
-                                //for the host
-    //clear hints structure to all zeroes and provide what I know at this point as hints
+    struct addrinfo *serverinfo, *addrp;
+    char ip4[INET_ADDRSTRLEN]; //allocate storage for a string for an IPv4 address
+    char buf[MAXDATASIZE];
+    char addrstr[INET6_ADDRSTRLEN];
+
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;//do the right IPv4 vs. IPv6 thing
     hints.ai_socktype = SOCK_STREAM;//using sockets to communicate
@@ -35,6 +41,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+    //getaddrinfo()
     if ((status = getaddrinfo(argv[1], argv[2], &hints, &serverinfo)) != 0) {
         fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));//gai_strerror() 
                                                                          //returns a string describing the 
@@ -43,19 +50,52 @@ int main(int argc, char *argv[]) {
     }
     //should have some address info in serverinfo at this point
     //get the first element in the serverinfo linked list and see what's in it
-    printf("first server info, server canon name: %s\n", serverinfo[0].ai_canonname); 
 
-    //TO DO:
-    //walk serverinfo, trying to create sockets and stop on the first successful one
-    //
+    for (addrp = serverinfo; addrp != NULL; addrp = addrp->ai_next) {//walk the linked list of addrinfo structs 
+                                                                    //to the end -- next pointer is NULL
+        //socket();
+        if ((sfd = socket(addrp->ai_family, addrp->ai_socktype, addrp->ai_protocol)) == -1) {
+            perror("server: socket\n");
+            continue;
+        }
+        printf("got a socket with sfg: %d\n", sfd);
+        
+        //connect();
+        if( connect(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1 ) {
+            perror("client: connect\n");
+            continue;//couldn't connect, try the next address
+        }
 
+        break;//if we got to here, we have connected and don't need to search any more addresses
+    }
+    
+    inet_ntop(addrp->ai_family, get_in_addr((struct sockaddr *)addrp->ai_addr), addrstr, sizeof addrstr);
+    printf("client: connected to %s\n", addrstr);
+    
+    if ((numbytes = recv(sfd, buf, MAXDATASIZE-1, 0)) == -1) {
+        perror("client: recv\n");
+        exit(1);
+    }
 
+    buf[numbytes] = '\0';//terminate the buffer string
+    printf("received %d bytes -- %s\n", numbytes, buf);
 
-    //socket();
-    //bind();
-    //connect();
+    char *reply = "Hi back!"; 
+    int replen = strlen(reply);
 
+    if (send(sfd, reply, replen, 0) == -1) {
+        perror("client: send\n");
+        exit(1);
+    }
 
+    close(sfd);
+}
 
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa) {
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
 
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
