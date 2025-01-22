@@ -32,7 +32,19 @@ gethostname() — Who am I?
  * 4. bind - associate an address and port with the socket - DONE
  * 5. listen - DONE
  * 6. accept - accept a client connection - DONE
+ *
+ * REFACTORING - started on 1/21/25
+ *  a) make server stay live and receive/handle multiple client connections for simple messages
  */
+
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa) {   
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
 
 int main(void) {
     int status, sfd, setsockoptval, client_sfd, backlog, numbytes;
@@ -41,7 +53,6 @@ int main(void) {
                                        //and a tracking pointer to walk the linked list
     struct sockaddr_storage client_addr;
     socklen_t client_addr_len;
-
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
@@ -54,7 +65,7 @@ int main(void) {
 
     char *host = "localhost"; 
     char *port = "4221"; 
-    char ip4[INET_ADDRSTRLEN];  // space to hold the IPv4 string
+    char ip[INET6_ADDRSTRLEN];  // space to hold the IP address tring
     char buf[MAXDATASIZE];      // space to hold string received
     
     if (status = getaddrinfo(host, port, &hints, &serverRes) != 0) {//**serverRes
@@ -68,13 +79,13 @@ int main(void) {
      * try the next address. */
 
     for (addrp = serverRes; addrp != NULL; addrp = addrp->ai_next) {//walk the linked list of addrinfo structs
-                                                                    //to the end -- next pointer is NULL
+                                                                    //to the end, where the next pointer is NULL
         sfd = socket(addrp->ai_family, addrp->ai_socktype, addrp->ai_protocol);
         if(sfd == -1) {//socket errored out, try the next address in the linked list
             continue;//drop out of this iteration of the loop, allow the next one to start
         }   
 
-        printf("got a socket with sfg: %d\n", sfd);
+        printf("got a socket with sfd: %d\n", sfd);
         setsockoptval = 1; 
         if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &setsockoptval, sizeof setsockoptval) == -1) {
             perror("server: setsockopt");
@@ -87,9 +98,9 @@ int main(void) {
             close(sfd);
             continue;
         }
-        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip4, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);
         unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
-        printf("Was able to bind the socket to server address: %s, port: %u\n", ip4, aport);
+        printf("Was able to bind the socket to server address: %s, port: %u\n", ip, aport);
 
         break;//if we got to here, we have bound and don't need to search any more addresses
     }
@@ -109,32 +120,41 @@ int main(void) {
 
     printf("listening now\n");
 
-    client_addr_len = sizeof client_addr;
-    if ((client_sfd = accept(sfd, (struct sockaddr *)&client_addr, &client_addr_len)) == -1) {
-        perror("server: accept");
-        exit(1);
-    }
-    printf("accepted connection to client: %d\n", client_sfd);
-   
-    char *msg = "Hello Randy!";
-    int msg_len = strlen(msg);
-    if (send(client_sfd, msg, msg_len, 0) == -1) {
-        perror("server: send");
-        exit(1);
+    //REFACTOR - use fork() to handle multiple client connections
+    while(1) {  // main accept() loop
+        client_addr_len = sizeof client_addr;
+        client_sfd = accept(sfd, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (client_sfd == -1) {
+            perror("accept");
+            continue;
+        }
+
+        inet_ntop(client_addr.ss_family,
+        get_in_addr((struct sockaddr *)&client_addr), ip, sizeof ip);
+        printf("server: got connection from %s\n", ip);
+
+        if (!fork()) { // this is the child process, because fork() returns 0 to the parent and a pid to the child (not 0)
+            char client_msg[MAXDATASIZE];
+            sprintf(client_msg, "Hello client at %s\n", ip); 
+            close(sfd); // child doesn't need the listener
+            //the server sends some text to the client 
+            if (send(client_sfd, client_msg, strlen(client_msg), 0) == -1)
+                perror("send");
+            
+            //and then the server listens for for some reply from the client
+            if ((numbytes = recv(client_sfd, buf, MAXDATASIZE-1, 0)) == -1) {
+                perror("recv");
+                exit(1);
+            }
+            
+            printf("Received %s from a client.\n", buf);
+            close(client_sfd);//done communicating with 'this' instance of a client
+            exit(0);
+        }
+        close(client_sfd);  // parent doesn't need this, child has this file descriptor to use
     }
 
-    printf("Just sent \"Hello Randy!\" to the client.\n");
-
-    if ((numbytes = recv(client_sfd, buf, MAXDATASIZE-1, 0)) == -1) {
-        perror("client: recv\n");
-        exit(1);
-    }
- 
-    buf[numbytes] = '\0';//terminate the buffer string
-    printf("received %d bytes -- %s\n", numbytes, buf);
-
-    close(client_sfd);
-    close(sfd);
+    return 0;
 }
 
 

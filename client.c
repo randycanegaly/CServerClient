@@ -72,6 +72,7 @@ int main(int argc, char *argv[]) {
     inet_ntop(addrp->ai_family, get_in_addr((struct sockaddr *)addrp->ai_addr), addrstr, sizeof addrstr);
     printf("client: connected to %s\n", addrstr);
     
+    //client listens for some message from the server after connecting
     if ((numbytes = recv(sfd, buf, MAXDATASIZE-1, 0)) == -1) {
         perror("client: recv\n");
         exit(1);
@@ -83,6 +84,7 @@ int main(int argc, char *argv[]) {
     char *reply = "Hi back!"; 
     int replen = strlen(reply);
 
+    //client sends some reply to the server
     if (send(sfd, reply, replen, 0) == -1) {
         perror("client: send\n");
         exit(1);
