@@ -36,6 +36,7 @@ gethostname() — Who am I?
  * REFACTORING - started on 1/21/25
  *  a) make server stay live and receive/handle multiple client connections for simple messages - DONE
  *  b) working on creating a GitHub workflow that will run a test upon push to a branch - IN PROGRESS on 1/23/25. Aaaaand, it's not working. :(
+ *  	Moved text.c to repository root. What happens?
  */
 
 // get sockaddr, IPv4 or IPv6:
