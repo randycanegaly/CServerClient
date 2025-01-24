@@ -34,7 +34,8 @@ gethostname() — Who am I?
  * 6. accept - accept a client connection - DONE
  *
  * REFACTORING - started on 1/21/25
- *  a) make server stay live and receive/handle multiple client connections for simple messages
+ *  a) make server stay live and receive/handle multiple client connections for simple messages - DONE
+ *  b) working on creating a GitHub workflow that will run a test upon push to a branch - IN PROGRESS on 1/23/25
  */
 
 // get sockaddr, IPv4 or IPv6:
