@@ -37,13 +37,13 @@ int main(int argc, char *argv[]) {
     hints.ai_flags = AI_CANONNAME;//show the real name of the host in results
 
     if (argc != 3) {
-        fprintf(stderr, "Usage: You need to provide two arguments: host and port.\n");
+        fprintf(stderr, "CLIENT: Usage: You need to provide two arguments: host and port.\n");
         exit(1);
     }
 
     //getaddrinfo()
     if ((status = getaddrinfo(argv[1], argv[2], &hints, &serverinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));//gai_strerror() 
+        fprintf(stderr, "CLIENT: getaddrinfo error: %s\n", gai_strerror(status));//gai_strerror() 
                                                                          //returns a string describing the 
                                                                          //status error code
         exit(1);
@@ -55,14 +55,14 @@ int main(int argc, char *argv[]) {
                                                                     //to the end -- next pointer is NULL
         //socket();
         if ((sfd = socket(addrp->ai_family, addrp->ai_socktype, addrp->ai_protocol)) == -1) {
-            perror("server: socket\n");
+            perror("CLIENT: socket\n");
             continue;
         }
-        printf("got a socket with sfg: %d\n", sfd);
+        printf("CLIENT: got a socket with sfg: %d\n", sfd);
         
         //connect();
         if( connect(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1 ) {
-            perror("client: connect\n");
+            perror("CLIENT: connect\n");
             continue;//couldn't connect, try the next address
         }
 
@@ -70,23 +70,23 @@ int main(int argc, char *argv[]) {
     }
     
     inet_ntop(addrp->ai_family, get_in_addr((struct sockaddr *)addrp->ai_addr), addrstr, sizeof addrstr);
-    printf("client: connected to %s\n", addrstr);
+    printf("CLIENT: connected to %s\n", addrstr);
     
     //client listens for some message from the server after connecting
     if ((numbytes = recv(sfd, buf, MAXDATASIZE-1, 0)) == -1) {
-        perror("client: recv\n");
+        perror("CLIENT: recv\n");
         exit(1);
     }
 
     buf[numbytes] = '\0';//terminate the buffer string
-    printf("received %d bytes -- %s\n", numbytes, buf);
+    printf("CLIENT: received %d bytes -- %s\n", numbytes, buf);
 
     char *reply = "Hi back!"; 
     int replen = strlen(reply);
 
     //client sends some reply to the server
     if (send(sfd, reply, replen, 0) == -1) {
-        perror("client: send\n");
+        perror("CLIENT: send\n");
         exit(1);
     }
 

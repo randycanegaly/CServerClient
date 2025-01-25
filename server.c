@@ -70,8 +70,8 @@ int main(void) {
     char ip[INET6_ADDRSTRLEN];  // space to hold the IP address tring
     char buf[MAXDATASIZE];      // space to hold string received
     
-    if (status = getaddrinfo(host, port, &hints, &serverRes) != 0) {//**serverRes
-        fprintf(stderr, "Getting address details failed with %s\n", gai_strerror(status));
+    if ((status = getaddrinfo(host, port, &hints, &serverRes)) != 0) {//**serverRes
+        fprintf(stderr, "SERVER: Getting address details failed with %s\n", gai_strerror(status));
         exit(1);
     }
 
@@ -87,22 +87,22 @@ int main(void) {
             continue;//drop out of this iteration of the loop, allow the next one to start
         }   
 
-        printf("got a socket with sfd: %d\n", sfd);
+        printf("SERVER: got a socket with sfd: %d\n", sfd);
         setsockoptval = 1; 
         if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &setsockoptval, sizeof setsockoptval) == -1) {
-            perror("server: setsockopt");
+            perror("SERVER: setsockopt");
             exit(1);
         }
         
         //have a socket descriptor, can we bind to it?
         if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1) {
-            perror("server: bind");
+            perror("SERVER: bind");
             close(sfd);
             continue;
         }
         inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);
         unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
-        printf("Was able to bind the socket to server address: %s, port: %u\n", ip, aport);
+        printf("SERVER: Was able to bind the socket to server address: %s, port: %u\n", ip, aport);
 
         break;//if we got to here, we have bound and don't need to search any more addresses
     }
@@ -111,29 +111,29 @@ int main(void) {
 
     if (addrp == NULL) {//walked off the end of the address list
                      //never bound the socket
-        fprintf(stderr, "Could not bind\n");
+        fprintf(stderr, "SERVER: Could not bind\n");
         exit(1);
     }
 
     if (listen(sfd, backlog) == -1) {
-        perror("server: listen");
+        perror("SERVER: listen");
         exit(1);
     }
 
-    printf("listening now\n");
+    printf("SERVER: listening now\n");
 
     //REFACTOR - use fork() to handle multiple client connections
     while(1) {  // main accept() loop
         client_addr_len = sizeof client_addr;
         client_sfd = accept(sfd, (struct sockaddr *)&client_addr, &client_addr_len);
         if (client_sfd == -1) {
-            perror("accept");
+            perror("SERVER: accept");
             continue;
         }
 
         inet_ntop(client_addr.ss_family,
         get_in_addr((struct sockaddr *)&client_addr), ip, sizeof ip);
-        printf("server: got connection from %s\n", ip);
+        printf("SERVER: got connection from %s\n", ip);
 
         if (!fork()) { // this is the child process, because fork() returns 0 to the parent and a pid to the child (not 0)
             char client_msg[MAXDATASIZE];
@@ -141,15 +141,15 @@ int main(void) {
             close(sfd); // child doesn't need the listener
             //the server sends some text to the client 
             if (send(client_sfd, client_msg, strlen(client_msg), 0) == -1)
-                perror("send");
+                perror("SERVER: send");
             
             //and then the server listens for for some reply from the client
             if ((numbytes = recv(client_sfd, buf, MAXDATASIZE-1, 0)) == -1) {
-                perror("recv");
+                perror("SERVER: recv");
                 exit(1);
             }
             
-            printf("Received %s from a client.\n", buf);
+            printf("SERVER: Received %s from a client.\n", buf);
             close(client_sfd);//done communicating with 'this' instance of a client
             exit(0);
         }
