@@ -40,14 +40,22 @@ if [ $1 == "run" ]; then
 	# Start the server in the background
 	./server &
 	server_pid=$!
+    echo "TEST: Started server has process id: $server_pid"
 
 	# Start 5 clients in the background
 	for i in {1..5}; do
     	./client localhost 4221 & 
     	client_pids[$i]=$!
+        #echo "Started client $i with process id: $!"
 	done
 
-	# Wait for all background processes to complete
+    echo "TEST: Process ids for clients started:" 
+    for client in "${client_pids[@]}"; do
+        echo "$client"
+    done
+	
+
+    # Wait for all background processes to complete
 	wait $server_pid ${client_pids[@]}
 
 	# Clean up

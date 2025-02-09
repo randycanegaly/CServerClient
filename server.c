@@ -34,9 +34,7 @@ gethostname() — Who am I?
  * 6. accept - accept a client connection - DONE
  *
  * REFACTORING - started on 1/21/25
- *  a) make server stay live and receive/handle multiple client connections for simple messages - DONE
- *  b) working on creating a GitHub workflow that will run a test upon push to a branch - IN PROGRESS on 1/23/25. Aaaaand, it's not working. :(
- *  	Moved text.c to repository root. What happens?
+ *  a) make server stay live and receive/handle multiple client connections for simple messages
  */
 
 // get sockaddr, IPv4 or IPv6:
@@ -95,12 +93,13 @@ int main(void) {
         }
         
         //have a socket descriptor, can we bind to it?
-        if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1) {
+        if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1) { /*TO DO: ???? it looks like even though return is -1, it looks like it did bind*/
             perror("SERVER: bind");
             close(sfd);
             continue;
         }
-        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);
+        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);/*Never gets to lines 101,102,103 or 105. ???*/
+        /*TO DO: Look at beej's example server in his doc to see how my code is different*/
         unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
         printf("SERVER: Was able to bind the socket to server address: %s, port: %u\n", ip, aport);
 
@@ -109,7 +108,7 @@ int main(void) {
     
     freeaddrinfo(serverRes);
 
-    if (addrp == NULL) {//walked off the end of the address list
+    if (addrp == NULL) {//walked off the end of the address list /*TO DO: This is wrong, did bind!*/
                      //never bound the socket
         fprintf(stderr, "SERVER: Could not bind\n");
         exit(1);
