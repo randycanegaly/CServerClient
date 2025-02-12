@@ -2,6 +2,39 @@
 
 #examine command line arguments
 #echo "Test: I see $# arguments."
+
+# Function to clean up processes
+cleanup() {
+    echo "I saw a Ctrl-C. I will clean up..."
+    # Kill the server process
+    if [ -n "$server_pid" ]; then
+        echo "Terminating server (PID: $server_pid)"
+        kill $server_pid 2>/dev/null
+        # Wait briefly and check if it's still running
+        sleep 1
+        if ps -p $server_pid > /dev/null 2>&1; then
+            echo "Server didn't terminate, forcing kill..."
+            kill -9 $server_pid 2>/dev/null
+        fi
+    fi
+    
+    # Kill any remaining client processes
+    for pid in "${client_pids[@]}"; do
+        if ps -p $pid > /dev/null 2>&1; then
+            echo "Terminating client (PID: $pid)"
+            kill $pid 2>/dev/null
+            sleep 1
+            if ps -p $pid > /dev/null 2>&1; then
+                echo "Client didn't terminate, forcing kill..."
+                kill -9 $pid 2>/dev/null
+            fi
+        fi
+    done
+    
+    echo "Cleanup complete"
+    exit 1
+}
+
 if [ ! $# == 1 ]; then
   echo "TEST: Usage: one of \"run\" or \"build\"."
   exit
@@ -37,7 +70,11 @@ fi
 
 if [ $1 == "run" ]; then
 	echo "TEST: Starting server and client."
-	# Start the server in the background
+
+    # Set up trap to catch SIGINT (Ctrl-C)
+    trap cleanup SIGINT #run the cleanup() function upon Ctrl-C
+
+    # Start the server in the background
 	./server &
 	server_pid=$!
     echo "TEST: Started server has process id: $server_pid"
@@ -62,4 +99,5 @@ if [ $1 == "run" ]; then
 	rm server client
 
 	echo "TEST: Halting Test."	
+    exit 2
 fi

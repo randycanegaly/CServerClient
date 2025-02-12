@@ -47,7 +47,7 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 int main(void) {
-    int status, sfd, setsockoptval, client_sfd, backlog, numbytes;
+    int status, sfd, setsockoptval, client_sfd, backlog, numbytes, result;
     struct addrinfo hints;
     struct addrinfo *serverRes, *addrp;//pointer to an addrinfo, s/b first in a linked list
                                        //and a tracking pointer to walk the linked list
@@ -93,13 +93,14 @@ int main(void) {
         }
         
         //have a socket descriptor, can we bind to it?
-        if(bind(sfd, addrp->ai_addr, addrp->ai_addrlen) == -1) { /*TO DO: ???? it looks like even though return is -1, it looks like it did bind*/
-            perror("SERVER: bind");
+        result = bind(sfd, addrp->ai_addr, addrp->ai_addrlen);
+        if (result == -1) {
             close(sfd);
+            perror("SERVER: bind");
             continue;
         }
-        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);/*Never gets to lines 101,102,103 or 105. ???*/
-        /*TO DO: Look at beej's example server in his doc to see how my code is different*/
+        printf("Did I get to here? Before print out info about what the socket bound to.");
+        inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);
         unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
         printf("SERVER: Was able to bind the socket to server address: %s, port: %u\n", ip, aport);
 
