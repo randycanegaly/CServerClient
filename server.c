@@ -99,7 +99,7 @@ int main(void) {
             perror("SERVER: bind");
             continue;
         }
-        printf("Did I get to here? Before print out info about what the socket bound to.");
+        //printf("Did I get to here? Before print out info about what the socket bound to.");
         inet_ntop(AF_INET, &(((struct sockaddr_in *)addrp->ai_addr)->sin_addr), ip, INET6_ADDRSTRLEN);
         unsigned short aport = ntohs((((struct sockaddr_in *)addrp->ai_addr)->sin_port));
         printf("SERVER: Was able to bind the socket to server address: %s, port: %u\n", ip, aport);
@@ -109,8 +109,7 @@ int main(void) {
     
     freeaddrinfo(serverRes);
 
-    if (addrp == NULL) {//walked off the end of the address list /*TO DO: This is wrong, did bind!*/
-                     //never bound the socket
+    if (addrp == NULL) {//walked off the end of the address list, which meant I never bound the socked to a port
         fprintf(stderr, "SERVER: Could not bind\n");
         exit(1);
     }
@@ -122,7 +121,6 @@ int main(void) {
 
     printf("SERVER: listening now\n");
 
-    //REFACTOR - use fork() to handle multiple client connections
     while(1) {  // main accept() loop
         client_addr_len = sizeof client_addr;
         client_sfd = accept(sfd, (struct sockaddr *)&client_addr, &client_addr_len);
@@ -135,7 +133,7 @@ int main(void) {
         get_in_addr((struct sockaddr *)&client_addr), ip, sizeof ip);
         printf("SERVER: got connection from %s\n", ip);
 
-        if (!fork()) { // this is the child process, because fork() returns 0 to the parent and a pid to the child (not 0)
+        if (!fork()) { // below is the child process, because fork() returns 0 to the parent and a pid to the child (not 0)
             char client_msg[MAXDATASIZE];
             sprintf(client_msg, "Hello client at %s\n", ip); 
             close(sfd); // child doesn't need the listener
@@ -143,17 +141,27 @@ int main(void) {
             if (send(client_sfd, client_msg, strlen(client_msg), 0) == -1)
                 perror("SERVER: send");
             
-            //and then the server listens for for some reply from the client
+            //and then the server gets some reply from the client
             if ((numbytes = recv(client_sfd, buf, MAXDATASIZE-1, 0)) == -1) {
                 perror("SERVER: recv");
                 exit(1);
             }
+
+            /*
+             * Have in buf, a message from a client
+             * In this impiter, I am just passing strings back and forth
+             * but in future impiters I will be processing more complex messages from higher protocols -
+             * HTTP and ????
+             * TO DO: Study TCP/IP Illustrated book to lean what those other, higher protocols are
+             * So, I need (TO DO) some form of handler pattern here to identify the type of message
+             * being received and shunt handling it to the right handler thingy
+             */
             
             printf("SERVER: Received %s from a client.\n", buf);
             close(client_sfd);//done communicating with 'this' instance of a client
             exit(0);
         }
-        close(client_sfd);  // parent doesn't need this, child has this file descriptor to use
+        close(client_sfd);  // parent doesn't need this, child already used it
     }
 
     return 0;
